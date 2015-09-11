@@ -1,0 +1,82 @@
+# Isaac Chang - based on Marc' original code. adding svm. trying neural net, svm.
+
+rm(list=ls())
+cat("\014")
+setwd("/Users/blackbird/Desktop/")
+
+library(randomForest)
+library(readr)
+library(neuralnet)
+library(nnet)
+library(e1071)
+
+# Load data sets
+train = read_csv("data_train_minus_holdout.csv")
+test = read_csv("data_holdout_test.csv")
+trainb = train
+testb = test
+#train = trainb
+#test = testb
+
+# Remove columns from the training set where the all values in a given column are 0
+#features=colMeans(train)>0
+#train=train[,features]
+fulltrain = train
+fulltrainlabels = as.factor(fulltrain[1:nrow(fulltrain),1])
+fulltrain = fulltrain[1:nrow(fulltrain),-1]
+
+# Remove corresponding columns from the test set
+#features=features[-1]
+#test=test[,features]
+
+# Inserting SVD
+compression = function(data_row) {
+  tdata = matrix(data_row, 28, 28)
+  tdata.svd = svd(tdata)
+  u = tdata.svd$u
+  d = tdata.svd$d
+  v = tdata.svd$v
+  i = 10
+  tdata.compressed <- u[,1:i] %*% diag(d[1:i]) %*% t(v[,1:i])
+  tdata.compressed <- matrix(tdata.compressed,1,784)
+}
+fulltrain.compressed <- apply(fulltrain, 1, compression)
+
+# Obtain a sample of training set
+set.seed(0)
+numTrain = nrow(train) # or use some other smaller value for testing purposes
+numTrees = 100
+rows=sample(1:nrow(train), numTrain)
+labels = as.factor(train[rows,1])
+truevalues=train[rows,1]
+train = train[rows,-1]
+
+# Convert all values to binary
+minlevel=0
+train=train>minlevel
+fulltrain=fulltrain>minlevel
+test=test>minlevel
+
+# Build model on sample of training set, and evaluate based on full training set
+#rf2=randomForest(train, labels, xtest=fulltrain, ntree=numTrees)
+#evalpredictions=data.frame(ImageId=1:nrow(fulltrain), Label=levels(fulltrainlabels)[rf2$test$predicted])
+#head(evalpredictions)
+#mean(evalpredictions[,2]==fulltrainlabels)
+
+# Build model on sample of training set, and make predictions on the official test set
+rf=randomForest(train, labels, xtest=train, ntree=numTrees)
+predictions=data.frame(ImageId=1:nrow(test), Label=levels(labels)[rf$test$predicted])
+head(predictions)
+write_csv(predictions,"predictions.csv")
+
+
+# -------------
+
+# trying out: neural net
+#model <- nnet(train.data, train.label, size = 3)
+
+# trying out: svm
+#write("SVM", stdout())
+#model <- svm(train.data, train.label)
+#test.label <- predict(model, test)
+#write_csv(predictions,"predictions.csv")
